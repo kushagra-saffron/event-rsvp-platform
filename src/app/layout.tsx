@@ -16,6 +16,9 @@ export const metadata: Metadata = {
   title: "MoneyStage",
   description:
     "MoneyStage helps you create, discover, and RSVP to finance events.",
+  verification: {
+    google: "p0MfWb8SIsg47-jGnXDlPBTR5Xk8RWt1aZrFb1BC7Is",
+  },
 };
 
 export default function RootLayout({
