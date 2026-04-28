@@ -1,8 +1,9 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { createClient } from "@/lib/supabase/client";
 import {
   ArrowUpRight,
   CheckCircle,
@@ -223,6 +224,22 @@ export default function Home() {
     });
   }, [locationFilter, searchQuery, topicFilter]);
 
+  function getSupabaseClient() {
+    try {
+      return createClient();
+    } catch {
+      return null;
+    }
+  }
+
+  useEffect(() => {
+    const supabase = getSupabaseClient();
+    if (!supabase) return;
+    void supabase.auth.getUser().then(({ data }) => {
+      setIsLoggedIn(Boolean(data.user));
+    });
+  }, []);
+
   function handleEventClick(event: EventItem) {
     setSelectedEvent(event);
     setView("detail");
@@ -231,7 +248,15 @@ export default function Home() {
 
   function handleLogin() {
     setShowAuthModal(false);
-    router.push("/login");
+    router.push("/login?next=/welcome");
+  }
+
+  async function handleSignOut() {
+    const supabase = getSupabaseClient();
+    if (!supabase) return;
+    await supabase.auth.signOut();
+    setIsLoggedIn(false);
+    setView("home");
   }
 
   function handleRsvp(eventId: number) {
@@ -275,7 +300,7 @@ export default function Home() {
                   <User className="h-4 w-4 text-white" />
                 </button>
                 <button
-                  onClick={() => setIsLoggedIn(false)}
+                  onClick={() => void handleSignOut()}
                   className="text-[11px] font-black uppercase tracking-[0.2em] text-zinc-500 hover:text-black"
                 >
                   Sign Out
@@ -320,10 +345,10 @@ export default function Home() {
                   Explore Events
                 </button>
                 <button
-                  onClick={() => setShowAuthModal(true)}
+                  onClick={() => router.push("/welcome")}
                   className="w-full border-4 border-black px-12 py-5 text-sm font-black uppercase tracking-[0.25em] transition hover:bg-zinc-100 sm:w-auto"
                 >
-                  Create Event
+                  Go to Dashboard
                 </button>
               </div>
             </div>
