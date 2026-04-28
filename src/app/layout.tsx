@@ -13,8 +13,9 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Event RSVP",
-  description: "Create, discover, and RSVP to physical and digital events.",
+  title: "MoneyStage",
+  description:
+    "MoneyStage helps you create, discover, and RSVP to finance events.",
 };
 
 export default function RootLayout({

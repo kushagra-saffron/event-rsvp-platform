@@ -45,6 +45,9 @@ export default function LoginPage() {
           <Link href="/" className="text-sm font-medium text-indigo-600">
             ← Home
           </Link>
+          <span className="text-sm font-semibold tracking-tight text-zinc-800">
+            MoneyStage
+          </span>
         </div>
       </header>
       <main className="mx-auto flex w-full max-w-lg flex-1 flex-col justify-center px-4 py-12">
