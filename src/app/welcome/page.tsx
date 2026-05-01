@@ -1,6 +1,8 @@
 "use client";
 
 import { createClient } from "@/lib/supabase/client";
+import { HostEventDashboardTools } from "@/components/host-event-dashboard-tools";
+import { avatarObjectPath, STORAGE_BUCKETS } from "@/lib/storage/paths";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -16,6 +18,8 @@ type EventSummary = {
   publication_status?: string;
   access_mode?: string;
   invite_token?: string | null;
+  thumbnail_image_url?: string | null;
+  banner_image_url?: string | null;
 };
 
 type AttendingEvent = { event: EventSummary; status: string };
@@ -42,6 +46,10 @@ export default function WelcomePage() {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [displayName, setDisplayName] = useState("Member");
+  const [userId, setUserId] = useState<string | null>(null);
+  const [profileAvatarUrl, setProfileAvatarUrl] = useState<string | null>(null);
+  const [avatarBusy, setAvatarBusy] = useState(false);
+  const [profileAvatarMsg, setProfileAvatarMsg] = useState<string | null>(null);
   const [createdEvents, setCreatedEvents] = useState<EventSummary[]>([]);
   const [attendingEvents, setAttendingEvents] = useState<AttendingEvent[]>([]);
   const [expandedEventId, setExpandedEventId] = useState<string | null>(null);
@@ -72,14 +80,16 @@ export default function WelcomePage() {
     }
     const { data: profile } = await supabase
       .from("profiles")
-      .select("display_name")
+      .select("display_name, avatar_url")
       .eq("id", user.id)
       .maybeSingle();
+    setUserId(user.id);
+    setProfileAvatarUrl(profile?.avatar_url ?? null);
     const [createdResult, attendingResult] = await Promise.all([
       supabase
         .from("events")
         .select(
-          "id,slug,title,event_type,start_datetime,end_datetime,publication_status,access_mode,invite_token",
+          "id,slug,title,event_type,start_datetime,end_datetime,publication_status,access_mode,invite_token,thumbnail_image_url,banner_image_url",
         )
         .eq("creator_id", user.id)
         .order("start_datetime", { ascending: true }),
@@ -166,6 +176,44 @@ export default function WelcomePage() {
     if (!token) return;
     const origin = window.location.origin;
     await navigator.clipboard.writeText(`${origin}/events/${slug}?invite=${token}`);
+  }
+
+  async function onProfileAvatarChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file || !userId) return;
+    setProfileAvatarMsg(null);
+    setAvatarBusy(true);
+    const supabase = getSupabaseClient();
+    if (!supabase) {
+      setAvatarBusy(false);
+      return;
+    }
+    const path = avatarObjectPath(userId);
+    const { error: upErr } = await supabase.storage
+      .from(STORAGE_BUCKETS.avatars)
+      .upload(path, file, {
+        upsert: true,
+        contentType: file.type || "image/jpeg",
+      });
+    if (upErr) {
+      setProfileAvatarMsg(upErr.message);
+      setAvatarBusy(false);
+      return;
+    }
+    const {
+      data: { publicUrl },
+    } = supabase.storage.from(STORAGE_BUCKETS.avatars).getPublicUrl(path);
+    const { error: pErr } = await supabase
+      .from("profiles")
+      .update({ avatar_url: publicUrl })
+      .eq("id", userId);
+    if (pErr) {
+      setProfileAvatarMsg(pErr.message);
+    } else {
+      setProfileAvatarUrl(publicUrl);
+    }
+    setAvatarBusy(false);
   }
 
   function exportCsv(event: EventSummary) {
@@ -361,6 +409,19 @@ export default function WelcomePage() {
                       ) : (
                         <p className="text-sm text-zinc-500">No participants in this view.</p>
                       )}
+                      {userId ? (
+                        <HostEventDashboardTools
+                          event={{
+                            id: event.id,
+                            slug: event.slug,
+                            title: event.title,
+                          }}
+                          userId={userId}
+                          thumbnailUrl={event.thumbnail_image_url ?? null}
+                          bannerUrl={event.banner_image_url ?? null}
+                          onUpdated={() => void loadDashboard()}
+                        />
+                      ) : null}
                     </div>
                   ) : null}
                 </article>
@@ -386,6 +447,40 @@ export default function WelcomePage() {
           <span>Upcoming hosted: {stats.totalUpcoming}</span>
           <span>Attending: {stats.totalAttending}</span>
         </div>
+
+        <section className="mt-10 border-4 border-black bg-white p-6 shadow-[8px_8px_0px_0px_rgba(0,0,0,1)]">
+          <h2 className="text-sm font-black uppercase tracking-[0.2em]">Your profile</h2>
+          <p className="mt-1 text-xs text-zinc-600">
+            Avatar or logo shown on explore cards and event pages next to your name.
+          </p>
+          <div className="mt-4 flex flex-wrap items-center gap-6">
+            {profileAvatarUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={profileAvatarUrl}
+                alt=""
+                className="size-20 border-2 border-black object-cover"
+              />
+            ) : (
+              <div className="flex size-20 items-center justify-center border-2 border-dashed border-zinc-300 bg-zinc-50 text-[10px] font-black uppercase text-zinc-400">
+                No image
+              </div>
+            )}
+            <label className="cursor-pointer border-2 border-black bg-black px-4 py-3 text-xs font-black uppercase tracking-[0.2em] text-white hover:bg-zinc-900">
+              {avatarBusy ? "Uploading…" : "Upload photo"}
+              <input
+                type="file"
+                accept="image/*"
+                className="hidden"
+                disabled={avatarBusy}
+                onChange={(ev) => void onProfileAvatarChange(ev)}
+              />
+            </label>
+          </div>
+          {profileAvatarMsg ? (
+            <p className="mt-3 text-xs text-red-700">{profileAvatarMsg}</p>
+          ) : null}
+        </section>
 
         <div className="mt-10 grid grid-cols-1 gap-6 md:grid-cols-2">
           <Link

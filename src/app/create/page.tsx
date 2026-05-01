@@ -7,6 +7,7 @@ import { FormEvent, useState } from "react";
 import { Plus, X } from "lucide-react";
 import type { EventAccessMode } from "@/lib/events/types";
 import { QUARTER_HOUR_TIMES } from "@/lib/time-quarter";
+import { eventImageObjectPath, STORAGE_BUCKETS } from "@/lib/storage/paths";
 
 type EventType = "physical" | "digital";
 
@@ -34,6 +35,8 @@ export default function CreateEventPage() {
   const [customFields, setCustomFields] = useState<string[]>([]);
   const [speakerInput, setSpeakerInput] = useState("");
   const [speakers, setSpeakers] = useState<string[]>([]);
+  const [thumbnailFile, setThumbnailFile] = useState<File | null>(null);
+  const [bannerFile, setBannerFile] = useState<File | null>(null);
 
   function getSupabaseClient() {
     try {
@@ -190,6 +193,52 @@ export default function CreateEventPage() {
           display_order: idx,
         })),
       );
+    }
+
+    if (inserted?.id && (thumbnailFile || bannerFile)) {
+      let thumbPublic: string | null = null;
+      let bannerPublic: string | null = null;
+      const bucket = STORAGE_BUCKETS.eventImages;
+      if (thumbnailFile) {
+        const thumbPath = eventImageObjectPath(
+          user.id,
+          inserted.id,
+          "thumbnail",
+          thumbnailFile.name,
+        );
+        const { error: te } = await supabase.storage
+          .from(bucket)
+          .upload(thumbPath, thumbnailFile, {
+            upsert: true,
+            contentType: thumbnailFile.type || "image/jpeg",
+          });
+        if (!te) {
+          thumbPublic = supabase.storage.from(bucket).getPublicUrl(thumbPath).data.publicUrl;
+        }
+      }
+      if (bannerFile) {
+        const bannerPath = eventImageObjectPath(
+          user.id,
+          inserted.id,
+          "banner",
+          bannerFile.name,
+        );
+        const { error: be } = await supabase.storage
+          .from(bucket)
+          .upload(bannerPath, bannerFile, {
+            upsert: true,
+            contentType: bannerFile.type || "image/jpeg",
+          });
+        if (!be) {
+          bannerPublic = supabase.storage.from(bucket).getPublicUrl(bannerPath).data.publicUrl;
+        }
+      }
+      const patch: { thumbnail_image_url?: string; banner_image_url?: string } = {};
+      if (thumbPublic) patch.thumbnail_image_url = thumbPublic;
+      if (bannerPublic) patch.banner_image_url = bannerPublic;
+      if (Object.keys(patch).length) {
+        await supabase.from("events").update(patch).eq("id", inserted.id);
+      }
     }
 
     setMessage("Event created successfully.");
@@ -435,8 +484,37 @@ export default function CreateEventPage() {
 
           <div className="space-y-3 border-2 border-black bg-zinc-50 p-4">
             <p className="text-xs font-black uppercase tracking-[0.2em]">
-              Extra RSVP Questions
+              Event images (optional)
             </p>
+            <p className="text-xs text-zinc-500">
+              Square thumbnail appears on explore; wide banner on the event page. You can change
+              these later from your dashboard.
+            </p>
+            <div className="grid gap-4 md:grid-cols-2">
+              <label className="block space-y-1 text-xs font-black uppercase tracking-[0.15em]">
+                Square thumbnail
+                <input
+                  type="file"
+                  accept="image/*"
+                  className="block w-full border-2 border-black bg-white px-2 py-2 text-[10px] font-normal normal-case"
+                  onChange={(e) =>
+                    setThumbnailFile(e.target.files?.[0] ?? null)
+                  }
+                />
+              </label>
+              <label className="block space-y-1 text-xs font-black uppercase tracking-[0.15em]">
+                Banner
+                <input
+                  type="file"
+                  accept="image/*"
+                  className="block w-full border-2 border-black bg-white px-2 py-2 text-[10px] font-normal normal-case"
+                  onChange={(e) => setBannerFile(e.target.files?.[0] ?? null)}
+                />
+              </label>
+            </div>
+          </div>
+
+          <div className="space-y-3 border-2 border-black bg-zinc-50 p-4">
             <p className="text-xs text-zinc-500">
               Collect extra attendee details (for example: phone, company,
               dietary preference).

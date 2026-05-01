@@ -7,9 +7,7 @@ import {
   Calendar,
   CheckCircle,
   Clock,
-  Copy,
   Link as LinkIcon,
-  Lock,
   MapPin,
   User,
   Video,
@@ -62,11 +60,6 @@ export function EventDetail({
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [resources, setResources] = useState<EventResource[]>([]);
-  const [resourceTitle, setResourceTitle] = useState("");
-  const [resourceType, setResourceType] =
-    useState<EventResource["type"]>("doc_link");
-  const [resourceUrl, setResourceUrl] = useState("");
-  const [resourceContent, setResourceContent] = useState("");
 
   const inviteToken = useMemo(
     () => parseInviteParam(inviteParam),
@@ -92,14 +85,13 @@ export function EventDetail({
 
   const viewer: EventViewerState = bundle.viewer;
   const isAnon = viewer === "A";
-  const canSeeFullTeaser = !isAnon;
   const showVenueOrLink = viewer === "D" || viewer === "E";
   const inviteOnlyBlocked =
     bundle.access_mode === "invite_only" && !inviteToken && viewer === "B";
   const showRsvpForm =
     viewer === "B" && !bundle.is_host && !inviteOnlyBlocked;
   const canCancelOwnRsvp = viewer === "C" || viewer === "D";
-  const canSeeResources = viewer === "E" || bundle.is_host;
+  const canSeeResources = viewer === "E";
 
   useEffect(() => {
     if (!canSeeResources) return;
@@ -262,38 +254,6 @@ export function EventDetail({
     }
   }
 
-  async function onUploadResource(e: FormEvent) {
-    e.preventDefault();
-    if (!bundle.is_host) return;
-    const supabase = (() => {
-      try {
-        return createClient();
-      } catch {
-        return null;
-      }
-    })();
-    if (!supabase) return;
-    const { data } = await supabase.rpc("upsert_event_resource", {
-      p_event_id: bundle.id,
-      p_type: resourceType,
-      p_title: resourceTitle,
-      p_url: resourceType === "text_summary" ? null : resourceUrl || null,
-      p_content: resourceType === "text_summary" ? resourceContent || null : null,
-      p_visibility: "all_confirmed",
-      p_specific_user_ids: [],
-    });
-    if ((data as { ok?: boolean })?.ok) {
-      setResourceTitle("");
-      setResourceUrl("");
-      setResourceContent("");
-      const refreshed = await supabase.rpc("get_event_resources_by_slug", {
-        p_slug: slug,
-      });
-      if (Array.isArray(refreshed.data)) {
-        setResources(refreshed.data as EventResource[]);
-      }
-    }
-  }
 
   const start = new Date(bundle.start_datetime);
   const end = new Date(bundle.end_datetime);
@@ -311,61 +271,86 @@ export function EventDetail({
             {copyDone ? "Copied" : "Copy link"}
           </button>
         </div>
-        <div className="mb-6 flex flex-wrap gap-2">
-          <span className="border-2 border-black px-3 py-1 text-[10px] font-black uppercase tracking-[0.2em]">
-            {bundle.event_type === "physical" ? "In person" : "Online"}
-          </span>
-          <span className="bg-black px-3 py-1 text-[10px] font-black uppercase tracking-[0.2em] text-white">
-            {accessLabel(bundle.access_mode)}
-          </span>
-        </div>
-
-        <h1 className="text-4xl font-black uppercase leading-tight tracking-tight md:text-6xl">
-          {bundle.title}
-        </h1>
-
-        <div className="mt-6 flex flex-col gap-4 text-sm font-semibold text-zinc-600 md:flex-row md:items-center md:gap-8">
-          <span className="inline-flex items-center gap-2">
-            <Clock className="h-4 w-4" />
-            {start.toLocaleString(undefined, {
-              dateStyle: "medium",
-              timeStyle: "short",
-            })}{" "}
-            —{" "}
-            {end.toLocaleTimeString(undefined, {
-              timeStyle: "short",
-            })}{" "}
-            ({bundle.timezone})
-          </span>
-          <span className="inline-flex items-center gap-2">
-            <User className="h-4 w-4" />
-            <Link
-              href={`/organizers/${bundle.organizer.handle ?? bundle.organizer.id}`}
-              className="underline"
-            >
-              {bundle.organizer.display_name ?? "Organizer"}
-            </Link>
-          </span>
-        </div>
-
-        <div className="mt-6 border-2 border-black bg-zinc-50 px-4 py-3 text-xs font-black uppercase tracking-[0.15em]">
-          {bundle.max_capacity != null
-            ? `${bundle.confirmed_count} / ${bundle.max_capacity} spots filled`
-            : `${bundle.confirmed_count} attending`}
-        </div>
-
-        <p className="mt-8 text-lg font-medium leading-relaxed text-zinc-800">
-          {bundle.short_description}
-        </p>
-
-        {!canSeeFullTeaser ? (
-          <p className="mt-6 flex items-start gap-3 border-2 border-black bg-white p-4 text-sm font-medium text-zinc-700">
-            <Lock className="mt-0.5 h-4 w-4 shrink-0" />
-            Sign in to see full event details and speaker profiles.
-          </p>
+        {bundle.banner_image_url ? (
+          <div className="-mx-6 mb-10 border-y-2 border-black sm:-mx-0 sm:border-x-2">
+            {/* eslint-disable-next-line @next/next/no-img-element -- public Supabase URLs */}
+            <img
+              src={bundle.banner_image_url}
+              alt=""
+              className="h-44 w-full object-cover md:h-56"
+            />
+          </div>
         ) : null}
 
-        {canSeeFullTeaser && bundle.full_description ? (
+        <div className="flex flex-col gap-8 md:flex-row md:items-start md:gap-10">
+          {bundle.thumbnail_image_url ? (
+            // eslint-disable-next-line @next/next/no-img-element -- public Supabase URLs
+            <img
+              src={bundle.thumbnail_image_url}
+              alt=""
+              className="aspect-square size-36 shrink-0 border-4 border-black object-cover md:size-40"
+            />
+          ) : null}
+          <div className="min-w-0 flex-1 space-y-6">
+            <div className="flex flex-wrap gap-2">
+              <span className="border-2 border-black px-3 py-1 text-[10px] font-black uppercase tracking-[0.2em]">
+                {bundle.event_type === "physical" ? "In person" : "Online"}
+              </span>
+              <span className="bg-black px-3 py-1 text-[10px] font-black uppercase tracking-[0.2em] text-white">
+                {accessLabel(bundle.access_mode)}
+              </span>
+            </div>
+
+            <h1 className="text-4xl font-black uppercase leading-tight tracking-tight md:text-6xl">
+              {bundle.title}
+            </h1>
+
+            <div className="flex flex-col gap-4 text-sm font-semibold text-zinc-600 md:flex-row md:flex-wrap md:items-center md:gap-8">
+              <span className="inline-flex items-center gap-2">
+                <Clock className="h-4 w-4" />
+                {start.toLocaleString(undefined, {
+                  dateStyle: "medium",
+                  timeStyle: "short",
+                })}{" "}
+                —{" "}
+                {end.toLocaleTimeString(undefined, {
+                  timeStyle: "short",
+                })}{" "}
+                ({bundle.timezone})
+              </span>
+              <span className="inline-flex items-center gap-3">
+                {bundle.organizer.avatar_url ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={bundle.organizer.avatar_url}
+                    alt=""
+                    className="size-9 border-2 border-black object-cover"
+                  />
+                ) : (
+                  <User className="h-4 w-4 text-zinc-400" />
+                )}
+                <Link
+                  href={`/organizers/${bundle.organizer.handle ?? bundle.organizer.id}`}
+                  className="underline"
+                >
+                  {bundle.organizer.display_name ?? "Organizer"}
+                </Link>
+              </span>
+            </div>
+
+            <div className="border-2 border-black bg-zinc-50 px-4 py-3 text-xs font-black uppercase tracking-[0.15em]">
+              {bundle.max_capacity != null
+                ? `${bundle.confirmed_count} / ${bundle.max_capacity} spots filled`
+                : `${bundle.confirmed_count} attending`}
+            </div>
+
+            <p className="text-lg font-medium leading-relaxed text-zinc-800">
+              {bundle.short_description}
+            </p>
+          </div>
+        </div>
+
+        {bundle.full_description?.trim() ? (
           <section className="mt-10">
             <h2 className="mb-3 text-xs font-black uppercase tracking-[0.25em] text-zinc-500">
               About
@@ -376,7 +361,7 @@ export function EventDetail({
           </section>
         ) : null}
 
-        {canSeeFullTeaser && bundle.speakers && bundle.speakers.length > 0 ? (
+        {bundle.speakers && bundle.speakers.length > 0 ? (
           <section className="mt-10">
             <h2 className="mb-4 text-xs font-black uppercase tracking-[0.25em] text-zinc-500">
               Speakers
@@ -405,21 +390,12 @@ export function EventDetail({
           </section>
         ) : null}
 
-        {bundle.event_type === "physical" && isAnon ? (
-          <p className="mt-6 flex items-start gap-3 border-2 border-dashed border-zinc-300 p-4 text-sm text-zinc-600">
-            <MapPin className="mt-0.5 h-4 w-4 shrink-0" />
-            Sign in to see event location (city).
-          </p>
-        ) : null}
-
-        {bundle.event_type === "physical" && canSeeFullTeaser && bundle.city ? (
-          <p className="mt-6 inline-flex items-center gap-2 text-sm font-semibold">
+        {bundle.event_type === "physical" && bundle.city ? (
+          <p className="mt-10 inline-flex items-center gap-2 text-sm font-semibold text-zinc-800">
             <MapPin className="h-4 w-4" />
             {bundle.city}
           </p>
         ) : null}
-
-        {bundle.event_type === "physical" && canSeeFullTeaser && !bundle.city ? null : null}
 
         {showVenueOrLink && bundle.event_type === "physical" ? (
           <div className="mt-6 border-4 border-black bg-lime-50 p-5">
@@ -433,11 +409,9 @@ export function EventDetail({
               <p className="mt-1 text-sm text-zinc-700">{bundle.venue_address}</p>
             ) : null}
           </div>
-        ) : canSeeFullTeaser &&
-          (viewer === "B" || viewer === "C") &&
-          bundle.event_type === "physical" ? (
+        ) : (viewer === "B" || viewer === "C") && bundle.event_type === "physical" ? (
           <p className="mt-6 border-2 border-black bg-zinc-50 p-4 text-sm">
-            Location and joining details are shared once your RSVP is confirmed.
+            Full venue address appears once your RSVP is confirmed by the host.
           </p>
         ) : null}
 
@@ -461,12 +435,10 @@ export function EventDetail({
               </a>
             ) : null}
           </div>
-        ) : canSeeFullTeaser &&
-          (viewer === "B" || viewer === "C") &&
-          bundle.event_type === "digital" ? (
+        ) : (viewer === "B" || viewer === "C") && bundle.event_type === "digital" ? (
           <p className="mt-6 border-2 border-black bg-zinc-50 p-4 text-sm">
-            Meeting link will appear here after your RSVP is confirmed by the host
-            (or immediately for open events once you submit).
+            Meeting link appears once your RSVP is confirmed (or right after you
+            submit for open events).
           </p>
         ) : null}
 
@@ -517,21 +489,14 @@ export function EventDetail({
         ) : null}
 
         {bundle.is_host ? (
-          <div className="mt-10 border-4 border-black p-6">
-            <p className="text-xs font-black uppercase tracking-[0.2em] text-zinc-500">
-              Host
-            </p>
-            <p className="mt-2 text-sm text-zinc-700">
-              You created this event. Manage it from your dashboard.
-            </p>
-            <Link
-              href="/welcome"
-              className="mt-4 inline-block border-2 border-black bg-black px-4 py-3 text-xs font-black uppercase tracking-[0.2em] text-white hover:bg-zinc-900"
-            >
-              Go to dashboard
+          <p className="mt-8 text-center text-xs font-black uppercase tracking-[0.2em] text-zinc-500">
+            <Link href="/welcome" className="underline decoration-2 underline-offset-4">
+              Edit event, images, and resources in your dashboard
             </Link>
-          </div>
-        ) : inviteOnlyBlocked ? (
+          </p>
+        ) : null}
+
+        {inviteOnlyBlocked ? (
           <div className="mt-10 border-4 border-black bg-zinc-100 p-6">
             <p className="text-sm font-bold">
               This event is invite-only. Open the invite link from your host to
@@ -653,66 +618,14 @@ export function EventDetail({
               </div>
             ) : (
               <p className="text-sm text-zinc-600">
-                {bundle.is_host
-                  ? "No resources uploaded yet."
-                  : "The host has not uploaded resources yet."}
+                No post-event resources are listed yet.
               </p>
             )}
           </section>
         ) : null}
 
-        {bundle.is_host ? (
-          <form
-            onSubmit={(e) => void onUploadResource(e)}
-            className="mt-10 space-y-3 border-2 border-black p-4"
-          >
-            <p className="text-xs font-black uppercase tracking-[0.2em]">
-              Upload post-event resource
-            </p>
-            <input
-              required
-              value={resourceTitle}
-              onChange={(e) => setResourceTitle(e.target.value)}
-              placeholder="Resource title"
-              className="w-full border-2 border-black px-3 py-2 text-sm"
-            />
-            <select
-              value={resourceType}
-              onChange={(e) =>
-                setResourceType(e.target.value as EventResource["type"])
-              }
-              className="w-full border-2 border-black px-3 py-2 text-sm"
-            >
-              <option value="video_link">Video link</option>
-              <option value="pdf">PDF</option>
-              <option value="doc_link">Doc link</option>
-              <option value="text_summary">Text summary</option>
-            </select>
-            {resourceType === "text_summary" ? (
-              <textarea
-                value={resourceContent}
-                onChange={(e) => setResourceContent(e.target.value)}
-                className="w-full border-2 border-black px-3 py-2 text-sm"
-                rows={4}
-                placeholder="Summary text"
-              />
-            ) : (
-              <input
-                value={resourceUrl}
-                onChange={(e) => setResourceUrl(e.target.value)}
-                className="w-full border-2 border-black px-3 py-2 text-sm"
-                placeholder="https://..."
-                type="url"
-              />
-            )}
-            <button
-              type="submit"
-              className="border-2 border-black bg-black px-4 py-2 text-xs font-black uppercase tracking-[0.2em] text-white"
-            >
-              Add resource
-            </button>
-          </form>
-        ) : null}
+
+
       </main>
     </div>
   );

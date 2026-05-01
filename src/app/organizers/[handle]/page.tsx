@@ -9,6 +9,7 @@ type OrganizerProfileResult = {
     display_name: string | null;
     handle: string;
     bio: string | null;
+    avatar_url: string | null;
   };
   follower_count: number;
   total_confirmed_attendees: number;
@@ -38,21 +39,45 @@ export default async function OrganizerPage({
   if (!data) notFound();
   const profile = data as OrganizerProfileResult;
 
+  const avatarSrc = profile.organizer.avatar_url;
+
   return (
     <main className="mx-auto max-w-4xl px-6 py-12">
-      <h1 className="text-4xl font-black uppercase tracking-tight">
-        {profile.organizer.display_name || "Organizer"}
-      </h1>
-      <p className="mt-2 text-sm text-zinc-600">@{profile.organizer.handle}</p>
-      <p className="mt-4 text-sm text-zinc-700">
-        {profile.organizer.bio || "Finance events host on MoneyStage."}
-      </p>
-      <div className="mt-4 flex flex-wrap gap-6 text-xs font-black uppercase tracking-[0.2em] text-zinc-500">
-        <span>Followers: {profile.follower_count ?? 0}</span>
-        <span>Total attendees: {profile.total_confirmed_attendees ?? 0}</span>
-      </div>
+      <div className="flex flex-wrap items-start gap-6">
+        {avatarSrc ? (
+          <>
+            {/* eslint-disable-next-line @next/next/no-img-element -- public Supabase URLs */}
+            <img
+              src={avatarSrc}
+              alt={
+                profile.organizer.display_name
+                  ? `${profile.organizer.display_name} avatar`
+                  : "Organizer avatar"
+              }
+              width={96}
+              height={96}
+              className="h-24 w-24 shrink-0 border-4 border-black object-cover"
+            />
+          </>
+        ) : null}
+        <div className="min-w-0 flex-1">
+          <h1 className="text-4xl font-black uppercase tracking-tight">
+            {profile.organizer.display_name || "Organizer"}
+          </h1>
+          <p className="mt-2 text-sm text-zinc-600">@{profile.organizer.handle}</p>
+          <p className="mt-4 text-sm text-zinc-700">
+            {profile.organizer.bio || "Finance events host on MoneyStage."}
+          </p>
+          <div className="mt-4 flex flex-wrap gap-6 text-xs font-black uppercase tracking-[0.2em] text-zinc-500">
+            <span>Followers: {profile.follower_count ?? 0}</span>
+            <span>
+              Total attendees: {profile.total_confirmed_attendees ?? 0}
+            </span>
+          </div>
 
-      <FollowControls organizerId={profile.organizer.id} />
+          <FollowControls organizerId={profile.organizer.id} />
+        </div>
+      </div>
 
       <section className="mt-10">
         <h2 className="text-xs font-black uppercase tracking-[0.2em] text-zinc-500">

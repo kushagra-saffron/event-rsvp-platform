@@ -44,7 +44,14 @@ export type EventBundle = {
   timezone: string;
   max_capacity: number | null;
   confirmed_count: number;
-  organizer: { id: string; display_name: string | null; handle?: string | null };
+  organizer: {
+    id: string;
+    display_name: string | null;
+    handle?: string | null;
+    avatar_url?: string | null;
+  };
+  thumbnail_image_url: string | null;
+  banner_image_url: string | null;
   viewer: EventViewerState;
   is_host: boolean;
   short_description: string;
@@ -77,6 +84,8 @@ export type PublishedEventRow = {
   max_capacity: number | null;
   confirmed_count: number;
   creator_display_name: string | null;
+  thumbnail_image_url: string | null;
+  creator_avatar_url: string | null;
 };
 
 export type SubmitRsvpResult =
