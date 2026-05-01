@@ -104,5 +104,49 @@ export async function GET(request: Request) {
     }
   }
 
-  return NextResponse.json({ ok: true, count: targets.length, sent });
+  // Also mark 2h reminders (same route keeps scheduler simple when email provider is optional).
+  const { data: rows2h } = await admin.rpc("get_2h_reminder_targets");
+  const targets2h = (rows2h ?? []) as ReminderRow[];
+  for (const row of targets2h) {
+    const eventUrl = `${site.replace(/\/$/, "")}/events/${row.event_slug}`;
+    const joining: string[] = [];
+    if (row.event_type === "physical") {
+      if (row.venue_name) joining.push(`Venue: ${row.venue_name}`);
+      if (row.venue_address) joining.push(`Address: ${row.venue_address}`);
+      if (row.location_city) joining.push(`City: ${row.location_city}`);
+    } else {
+      if (row.meeting_platform) joining.push(`Platform: ${row.meeting_platform}`);
+      if (row.meeting_link) joining.push(`Join link: ${row.meeting_link}`);
+    }
+    const text = [
+      `Hi${row.attendee_display_name ? ` ${row.attendee_display_name}` : ""},`,
+      ``,
+      `Final reminder: "${row.event_title}" starts in about 2 hours.`,
+      ``,
+      `When: ${row.start_datetime} (${row.timezone})`,
+      ``,
+      ...joining,
+      ``,
+      `Event page: ${eventUrl}`,
+      ``,
+      `MoneyStage`,
+    ].join("\n");
+    const { error: sendError } = await resend.emails.send({
+      from,
+      to: row.attendee_email,
+      subject: `Final reminder: ${row.event_title}`,
+      text,
+    });
+    if (!sendError) {
+      await admin.rpc("mark_rsvp_reminder_2h_sent", { p_rsvp_id: row.rsvp_id });
+      sent += 1;
+    }
+  }
+
+  return NextResponse.json({
+    ok: true,
+    count48h: targets.length,
+    count2h: targets2h.length,
+    sent,
+  });
 }

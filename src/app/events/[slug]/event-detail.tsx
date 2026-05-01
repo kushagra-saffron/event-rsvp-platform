@@ -17,6 +17,7 @@ import {
 import { createClient } from "@/lib/supabase/client";
 import type {
   EventBundle,
+  EventResource,
   EventViewerState,
   RsvpFormField,
 } from "@/lib/events/types";
@@ -59,6 +60,12 @@ export function EventDetail({
   const [fieldValues, setFieldValues] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [resources, setResources] = useState<EventResource[]>([]);
+  const [resourceTitle, setResourceTitle] = useState("");
+  const [resourceType, setResourceType] =
+    useState<EventResource["type"]>("doc_link");
+  const [resourceUrl, setResourceUrl] = useState("");
+  const [resourceContent, setResourceContent] = useState("");
 
   const inviteToken = useMemo(
     () => parseInviteParam(inviteParam),
@@ -81,9 +88,39 @@ export function EventDetail({
     if (data) setBundle(data as EventBundle);
   }, [slug, inviteToken]);
 
+  const viewer: EventViewerState = bundle.viewer;
+  const isAnon = viewer === "A";
+  const canSeeFullTeaser = !isAnon;
+  const showVenueOrLink = viewer === "D" || viewer === "E";
+  const inviteOnlyBlocked =
+    bundle.access_mode === "invite_only" && !inviteToken && viewer === "B";
+  const showRsvpForm =
+    viewer === "B" && !bundle.is_host && !inviteOnlyBlocked;
+  const canCancelOwnRsvp = viewer === "C" || viewer === "D";
+  const canSeeResources = viewer === "E" || bundle.is_host;
+
   useEffect(() => {
     void refresh();
   }, [refresh]);
+
+  useEffect(() => {
+    if (!canSeeResources) return;
+    const supabase = (() => {
+      try {
+        return createClient();
+      } catch {
+        return null;
+      }
+    })();
+    if (!supabase) return;
+    void supabase
+      .rpc("get_event_resources_by_slug", { p_slug: slug })
+      .then(({ data }) => {
+        if (Array.isArray(data)) {
+          setResources(data as EventResource[]);
+        }
+      });
+  }, [canSeeResources, slug]);
 
   useEffect(() => {
     void (async () => {
@@ -117,16 +154,6 @@ export function EventDetail({
       }
     })();
   }, []);
-
-  const viewer: EventViewerState = bundle.viewer;
-  const isAnon = viewer === "A";
-  const canSeeFullTeaser = !isAnon;
-  const showVenueOrLink = viewer === "D" || viewer === "E";
-  const inviteOnlyBlocked =
-    bundle.access_mode === "invite_only" && !inviteToken && viewer === "B";
-
-  const showRsvpForm =
-    viewer === "B" && !bundle.is_host && !inviteOnlyBlocked;
 
   const eventUrl =
     typeof window !== "undefined"
@@ -222,6 +249,54 @@ export function EventDetail({
     router.push(`/events/${slug}/confirmed`);
   }
 
+  async function onCancelOwnRsvp() {
+    const supabase = (() => {
+      try {
+        return createClient();
+      } catch {
+        return null;
+      }
+    })();
+    if (!supabase) return;
+    const { data } = await supabase.rpc("cancel_own_rsvp", { p_slug: slug });
+    if ((data as { ok?: boolean })?.ok) {
+      await refresh();
+    }
+  }
+
+  async function onUploadResource(e: FormEvent) {
+    e.preventDefault();
+    if (!bundle.is_host) return;
+    const supabase = (() => {
+      try {
+        return createClient();
+      } catch {
+        return null;
+      }
+    })();
+    if (!supabase) return;
+    const { data } = await supabase.rpc("upsert_event_resource", {
+      p_event_id: bundle.id,
+      p_type: resourceType,
+      p_title: resourceTitle,
+      p_url: resourceType === "text_summary" ? null : resourceUrl || null,
+      p_content: resourceType === "text_summary" ? resourceContent || null : null,
+      p_visibility: "all_confirmed",
+      p_specific_user_ids: [],
+    });
+    if ((data as { ok?: boolean })?.ok) {
+      setResourceTitle("");
+      setResourceUrl("");
+      setResourceContent("");
+      const refreshed = await supabase.rpc("get_event_resources_by_slug", {
+        p_slug: slug,
+      });
+      if (Array.isArray(refreshed.data)) {
+        setResources(refreshed.data as EventResource[]);
+      }
+    }
+  }
+
   const start = new Date(bundle.start_datetime);
   const end = new Date(bundle.end_datetime);
 
@@ -275,7 +350,12 @@ export function EventDetail({
           </span>
           <span className="inline-flex items-center gap-2">
             <User className="h-4 w-4" />
-            {bundle.organizer.display_name ?? "Organizer"}
+            <Link
+              href={`/organizers/${bundle.organizer.handle ?? bundle.organizer.id}`}
+              className="underline"
+            >
+              {bundle.organizer.display_name ?? "Organizer"}
+            </Link>
           </span>
         </div>
 
@@ -435,6 +515,18 @@ export function EventDetail({
           </div>
         ) : null}
 
+        {canCancelOwnRsvp ? (
+          <div className="mt-5">
+            <button
+              type="button"
+              onClick={() => void onCancelOwnRsvp()}
+              className="border-2 border-black px-4 py-2 text-xs font-black uppercase tracking-[0.2em] hover:bg-zinc-100"
+            >
+              Cancel RSVP (until 2 hours before start)
+            </button>
+          </div>
+        ) : null}
+
         {bundle.is_host ? (
           <div className="mt-10 border-4 border-black p-6">
             <p className="text-xs font-black uppercase tracking-[0.2em] text-zinc-500">
@@ -544,6 +636,93 @@ export function EventDetail({
               Sign in to RSVP
             </Link>
           </p>
+        ) : null}
+
+        {canSeeResources ? (
+          <section className="mt-12">
+            <h2 className="mb-3 text-xs font-black uppercase tracking-[0.25em] text-zinc-500">
+              Post-event resources
+            </h2>
+            {resources.length ? (
+              <div className="space-y-3">
+                {resources.map((r) => (
+                  <article key={r.id} className="border-2 border-black bg-white p-4">
+                    <p className="text-sm font-black uppercase">{r.title}</p>
+                    {r.url ? (
+                      <a
+                        href={r.url}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-sm underline"
+                      >
+                        Open resource
+                      </a>
+                    ) : null}
+                    {r.content ? <p className="mt-2 text-sm">{r.content}</p> : null}
+                  </article>
+                ))}
+              </div>
+            ) : (
+              <p className="text-sm text-zinc-600">
+                {bundle.is_host
+                  ? "No resources uploaded yet."
+                  : "The host has not uploaded resources yet."}
+              </p>
+            )}
+          </section>
+        ) : null}
+
+        {bundle.is_host ? (
+          <form
+            onSubmit={(e) => void onUploadResource(e)}
+            className="mt-10 space-y-3 border-2 border-black p-4"
+          >
+            <p className="text-xs font-black uppercase tracking-[0.2em]">
+              Upload post-event resource
+            </p>
+            <input
+              required
+              value={resourceTitle}
+              onChange={(e) => setResourceTitle(e.target.value)}
+              placeholder="Resource title"
+              className="w-full border-2 border-black px-3 py-2 text-sm"
+            />
+            <select
+              value={resourceType}
+              onChange={(e) =>
+                setResourceType(e.target.value as EventResource["type"])
+              }
+              className="w-full border-2 border-black px-3 py-2 text-sm"
+            >
+              <option value="video_link">Video link</option>
+              <option value="pdf">PDF</option>
+              <option value="doc_link">Doc link</option>
+              <option value="text_summary">Text summary</option>
+            </select>
+            {resourceType === "text_summary" ? (
+              <textarea
+                value={resourceContent}
+                onChange={(e) => setResourceContent(e.target.value)}
+                className="w-full border-2 border-black px-3 py-2 text-sm"
+                rows={4}
+                placeholder="Summary text"
+              />
+            ) : (
+              <input
+                value={resourceUrl}
+                onChange={(e) => setResourceUrl(e.target.value)}
+                className="w-full border-2 border-black px-3 py-2 text-sm"
+                placeholder="https://..."
+                type="url"
+              />
+            )}
+            <button
+              type="submit"
+              className="border-2 border-black bg-black px-4 py-2 text-xs font-black uppercase tracking-[0.2em] text-white"
+            >
+              Add resource
+            </button>
+          </form>
         ) : null}
       </main>
     </div>

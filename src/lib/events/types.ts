@@ -23,6 +23,15 @@ export type EventSpeaker = {
   bio?: string | null;
 };
 
+export type EventResource = {
+  id: string;
+  type: "video_link" | "pdf" | "doc_link" | "text_summary";
+  title: string;
+  url: string | null;
+  content: string | null;
+  created_at: string;
+};
+
 export type EventBundle = {
   id: string;
   slug: string;
@@ -35,7 +44,7 @@ export type EventBundle = {
   timezone: string;
   max_capacity: number | null;
   confirmed_count: number;
-  organizer: { id: string; display_name: string | null };
+  organizer: { id: string; display_name: string | null; handle?: string | null };
   viewer: EventViewerState;
   is_host: boolean;
   short_description: string;

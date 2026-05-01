@@ -32,6 +32,8 @@ export default function CreateEventPage() {
   const [message, setMessage] = useState<string | null>(null);
   const [customFieldInput, setCustomFieldInput] = useState("");
   const [customFields, setCustomFields] = useState<string[]>([]);
+  const [speakerInput, setSpeakerInput] = useState("");
+  const [speakers, setSpeakers] = useState<string[]>([]);
 
   function getSupabaseClient() {
     try {
@@ -102,7 +104,9 @@ export default function CreateEventPage() {
       maxCapNum = parsed;
     }
 
-    const { error } = await supabase.from("events").insert({
+    const { data: inserted, error } = await supabase
+      .from("events")
+      .insert({
       creator_id: user.id,
       title,
       description: fullDescription.trim() || teaser,
@@ -127,12 +131,24 @@ export default function CreateEventPage() {
         type: "text",
         required: false,
       })),
-    });
+      })
+      .select("id")
+      .single();
 
     if (error) {
       setMessage(error.message);
       setSubmitting(false);
       return;
+    }
+
+    if (inserted?.id && speakers.length) {
+      await supabase.from("event_speakers").insert(
+        speakers.map((name, idx) => ({
+          event_id: inserted.id,
+          name,
+          display_order: idx,
+        })),
+      );
     }
 
     setMessage("Event created successfully.");
@@ -423,6 +439,54 @@ export default function CreateEventPage() {
                       type="button"
                       onClick={() =>
                         setCustomFields((prev) =>
+                          prev.filter((_, currentIdx) => currentIdx !== idx),
+                        )
+                      }
+                      className="text-zinc-500 hover:text-black"
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            ) : null}
+          </div>
+
+          <div className="space-y-3 border-2 border-black bg-zinc-50 p-4">
+            <p className="text-xs font-black uppercase tracking-[0.2em]">Speakers</p>
+            <div className="flex gap-2">
+              <input
+                value={speakerInput}
+                onChange={(e) => setSpeakerInput(e.target.value)}
+                placeholder="Speaker name"
+                className="flex-1 border-2 border-black px-3 py-2 text-sm focus:outline-none"
+              />
+              <button
+                type="button"
+                onClick={() => {
+                  const value = speakerInput.trim();
+                  if (!value) return;
+                  setSpeakers((prev) => [...prev, value]);
+                  setSpeakerInput("");
+                }}
+                className="inline-flex items-center gap-1 border-2 border-black px-3 py-2 text-xs font-black uppercase tracking-[0.15em] hover:bg-black hover:text-white"
+              >
+                <Plus className="h-3.5 w-3.5" />
+                Add
+              </button>
+            </div>
+            {speakers.length ? (
+              <div className="flex flex-wrap gap-2">
+                {speakers.map((speaker, idx) => (
+                  <div
+                    key={`${speaker}-${idx}`}
+                    className="inline-flex items-center gap-2 border-2 border-black bg-white px-2 py-1 text-xs font-semibold"
+                  >
+                    {speaker}
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setSpeakers((prev) =>
                           prev.filter((_, currentIdx) => currentIdx !== idx),
                         )
                       }
