@@ -1,10 +1,9 @@
 "use client";
 
 import { createClient } from "@/lib/supabase/client";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { Lock, TrendingUp } from "lucide-react";
+import { Lock } from "lucide-react";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -52,25 +51,6 @@ export default function LoginPage() {
 
   return (
     <div className="flex min-h-full flex-1 flex-col bg-white text-black">
-      <header className="border-b-2 border-black bg-white">
-        <div className="mx-auto flex h-20 w-full max-w-5xl items-center justify-between px-6">
-          <Link
-            href="/"
-            className="text-xs font-black uppercase tracking-[0.2em] text-zinc-500 hover:text-black"
-          >
-            ← Back
-          </Link>
-          <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center bg-black">
-              <TrendingUp className="h-5 w-5 text-white" />
-            </div>
-            <span className="text-2xl font-black uppercase tracking-tight">
-              MoneyStage
-            </span>
-          </div>
-        </div>
-      </header>
-
       <main className="mx-auto flex w-full max-w-5xl flex-1 flex-col justify-center px-6 py-16">
         <div className="w-full max-w-xl border-4 border-black bg-white p-10 shadow-[16px_16px_0px_0px_rgba(0,0,0,1)]">
           <div className="mb-8 flex h-14 w-14 items-center justify-center bg-black">

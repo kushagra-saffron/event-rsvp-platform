@@ -100,10 +100,6 @@ export function EventDetail({
   const canSeeResources = viewer === "E" || bundle.is_host;
 
   useEffect(() => {
-    void refresh();
-  }, [refresh]);
-
-  useEffect(() => {
     if (!canSeeResources) return;
     const supabase = (() => {
       try {
@@ -301,15 +297,9 @@ export function EventDetail({
   const end = new Date(bundle.end_datetime);
 
   return (
-    <div className="min-h-screen bg-white text-black">
-      <header className="border-b-2 border-black bg-white">
-        <div className="mx-auto flex h-16 max-w-5xl items-center justify-between px-6">
-          <Link
-            href="/"
-            className="text-xs font-black uppercase tracking-[0.2em] text-zinc-500 hover:text-black"
-          >
-            ← Home
-          </Link>
+    <div className="min-h-full bg-white text-black">
+      <main className="mx-auto max-w-5xl px-6 py-12">
+        <div className="mb-8 flex justify-end">
           <button
             type="button"
             onClick={() => void copyLink()}
@@ -319,9 +309,6 @@ export function EventDetail({
             {copyDone ? "Copied" : "Copy link"}
           </button>
         </div>
-      </header>
-
-      <main className="mx-auto max-w-5xl px-6 py-12">
         <div className="mb-6 flex flex-wrap gap-2">
           <span className="border-2 border-black px-3 py-1 text-[10px] font-black uppercase tracking-[0.2em]">
             {bundle.event_type === "physical" ? "In person" : "Online"}

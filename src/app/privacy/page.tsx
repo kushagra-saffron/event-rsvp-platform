@@ -1,15 +1,10 @@
-import Link from "next/link";
-
 export default function PrivacyPolicyPage() {
   return (
     <main className="mx-auto w-full max-w-3xl px-6 py-16">
-      <div className="mb-8 flex items-center justify-between">
+      <div className="mb-8">
         <h1 className="text-3xl font-black uppercase tracking-tight">
           Privacy Policy
         </h1>
-        <Link href="/" className="text-sm font-medium text-indigo-600">
-          Back to MoneyStage
-        </Link>
       </div>
 
       <div className="space-y-6 text-sm leading-7 text-zinc-700">

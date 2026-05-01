@@ -1,6 +1,9 @@
 import { createBrowserClient } from "@supabase/ssr";
+import type { SupabaseClient } from "@supabase/supabase-js";
 
-export function createClient() {
+let browserClient: SupabaseClient | undefined;
+
+export function createClient(): SupabaseClient {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
   if (!url || !key) {
@@ -8,5 +11,8 @@ export function createClient() {
       "Missing NEXT_PUBLIC_SUPABASE_URL or NEXT_PUBLIC_SUPABASE_ANON_KEY",
     );
   }
-  return createBrowserClient(url, key);
+  if (!browserClient) {
+    browserClient = createBrowserClient(url, key);
+  }
+  return browserClient;
 }

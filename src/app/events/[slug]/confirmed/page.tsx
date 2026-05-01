@@ -68,20 +68,15 @@ export default async function RsvpConfirmedPage({
       : null;
 
   return (
-    <div className="min-h-screen bg-white text-black">
-      <header className="border-b-2 border-black bg-white">
-        <div className="mx-auto flex h-16 max-w-3xl items-center justify-between px-6">
-          <Link
-            href={`/events/${slug}`}
-            className="text-xs font-black uppercase tracking-[0.2em] text-zinc-500 hover:text-black"
-          >
-            ← Event
-          </Link>
-        </div>
-      </header>
-
+    <div className="min-h-full bg-white text-black">
       <main className="mx-auto max-w-3xl px-6 py-14">
-        <p className="text-xs font-black uppercase tracking-[0.3em] text-zinc-500">
+        <Link
+          href={`/events/${slug}`}
+          className="text-xs font-black uppercase tracking-[0.2em] text-zinc-500 hover:text-black"
+        >
+          ← Back to event
+        </Link>
+        <p className="mt-8 text-xs font-black uppercase tracking-[0.3em] text-zinc-500">
           RSVP received
         </p>
         <h1 className="mt-4 text-4xl font-black uppercase tracking-tight md:text-5xl">

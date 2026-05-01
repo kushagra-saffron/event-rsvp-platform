@@ -4,7 +4,7 @@ import { createClient } from "@/lib/supabase/client";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { CalendarCheck, ChevronDown, ChevronUp, PlusSquare, TrendingUp } from "lucide-react";
+import { CalendarCheck, ChevronDown, ChevronUp, PlusSquare } from "lucide-react";
 
 type EventSummary = {
   id: string;
@@ -122,12 +122,6 @@ export default function WelcomePage() {
     if (!supabase) return;
     const { data } = await supabase.rpc("get_event_participants", { target_event_id: eventId });
     setParticipantsByEvent((prev) => ({ ...prev, [eventId]: (data as Participant[]) ?? [] }));
-  }
-
-  async function signOut() {
-    const supabase = getSupabaseClient();
-    if (supabase) await supabase.auth.signOut();
-    router.replace("/");
   }
 
   async function setParticipantStatus(eventId: string, userId: string, status: "confirmed" | "rejected") {
@@ -381,24 +375,7 @@ export default function WelcomePage() {
   }
 
   return (
-    <main className="min-h-screen bg-white text-black">
-      <header className="border-b-2 border-black bg-white">
-        <div className="mx-auto flex h-20 w-full max-w-6xl items-center justify-between px-6">
-          <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center bg-black">
-              <TrendingUp className="h-5 w-5 text-white" />
-            </div>
-            <span className="text-2xl font-black uppercase tracking-tight">MoneyStage</span>
-          </div>
-          <button
-            onClick={() => void signOut()}
-            className="border-2 border-black px-4 py-2 text-xs font-black uppercase tracking-[0.2em] hover:bg-black hover:text-white"
-          >
-            Sign Out
-          </button>
-        </div>
-      </header>
-
+    <main className="min-h-full bg-white text-black">
       <section className="mx-auto max-w-6xl px-6 py-14">
         <p className="text-xs font-black uppercase tracking-[0.3em] text-zinc-500">Dashboard</p>
         <h1 className="mt-4 text-5xl font-black uppercase tracking-tight md:text-7xl">
@@ -412,7 +389,7 @@ export default function WelcomePage() {
 
         <div className="mt-10 grid grid-cols-1 gap-6 md:grid-cols-2">
           <Link
-            href="/"
+            href="/explore"
             className="flex items-center justify-center gap-3 border-4 border-black bg-black px-6 py-5 text-xs font-black uppercase tracking-[0.2em] text-white hover:-translate-x-1 hover:-translate-y-1 hover:shadow-[8px_8px_0px_0px_rgba(0,0,0,1)]"
           >
             <CalendarCheck className="h-4 w-4" />

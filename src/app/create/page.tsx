@@ -2,11 +2,11 @@
 
 import { createClient } from "@/lib/supabase/client";
 import { makeUniqueSlug } from "@/lib/slug";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { FormEvent, useState } from "react";
-import { Plus, TrendingUp, X } from "lucide-react";
+import { Plus, X } from "lucide-react";
 import type { EventAccessMode } from "@/lib/events/types";
+import { QUARTER_HOUR_TIMES } from "@/lib/time-quarter";
 
 type EventType = "physical" | "digital";
 
@@ -79,12 +79,48 @@ export default function CreateEventPage() {
       return;
     }
 
-    const startDatetime = new Date(`${startDate}T${startTime}:00`).toISOString();
-    const endDatetime = new Date(`${endDate}T${endTime}:00`).toISOString();
-    if (new Date(endDatetime) <= new Date(startDatetime)) {
-      setMessage("End time must be after start time.");
+    if (!startTime.trim()) {
+      setMessage("Please choose a start time.");
       setSubmitting(false);
       return;
+    }
+
+    const startMs = new Date(`${startDate}T${startTime}:00`).getTime();
+    if (!Number.isFinite(startMs)) {
+      setMessage("Invalid start date or time.");
+      setSubmitting(false);
+      return;
+    }
+    const startDatetime = new Date(startMs).toISOString();
+
+    const endDateTrimmed = endDate.trim();
+    const endTimeTrimmed = endTime.trim();
+    const hasEndDate = endDateTrimmed !== "";
+    const hasEndTime = endTimeTrimmed !== "";
+    if (hasEndDate !== hasEndTime) {
+      setMessage(
+        "Either provide both end date and end time, or leave both blank (we’ll default to one hour after start).",
+      );
+      setSubmitting(false);
+      return;
+    }
+
+    let endDatetime: string;
+    if (hasEndDate && hasEndTime) {
+      const endMs = new Date(`${endDateTrimmed}T${endTimeTrimmed}:00`).getTime();
+      if (!Number.isFinite(endMs)) {
+        setMessage("Invalid end date or time.");
+        setSubmitting(false);
+        return;
+      }
+      endDatetime = new Date(endMs).toISOString();
+      if (endMs <= startMs) {
+        setMessage("End time must be after start time.");
+        setSubmitting(false);
+        return;
+      }
+    } else {
+      endDatetime = new Date(startMs + 60 * 60 * 1000).toISOString();
     }
 
     const teaser =
@@ -136,7 +172,12 @@ export default function CreateEventPage() {
       .single();
 
     if (error) {
-      setMessage(error.message);
+      const msg =
+        error.message.includes("rsvp_form_fields") &&
+        error.message.toLowerCase().includes("schema cache")
+          ? `${error.message} If this persists, run the latest migration (including NOTIFY pgrst reload) against your Supabase project, then retry in a minute.`
+          : error.message;
+      setMessage(msg);
       setSubmitting(false);
       return;
     }
@@ -157,26 +198,7 @@ export default function CreateEventPage() {
   }
 
   return (
-    <main className="min-h-screen bg-white text-black">
-      <header className="border-b-2 border-black bg-white">
-        <div className="mx-auto flex h-20 w-full max-w-5xl items-center justify-between px-6">
-          <Link
-            href="/welcome"
-            className="text-xs font-black uppercase tracking-[0.2em] text-zinc-500 hover:text-black"
-          >
-            ← Dashboard
-          </Link>
-          <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center bg-black">
-              <TrendingUp className="h-5 w-5 text-white" />
-            </div>
-            <span className="text-2xl font-black uppercase tracking-tight">
-              MoneyStage
-            </span>
-          </div>
-        </div>
-      </header>
-
+    <main className="min-h-full bg-white text-black">
       <section className="mx-auto w-full max-w-5xl px-6 py-14">
         <h1 className="text-5xl font-black uppercase tracking-tight md:text-6xl">
           Create Event
@@ -217,39 +239,52 @@ export default function CreateEventPage() {
             </div>
             <div className="space-y-2">
               <label className="text-xs font-black uppercase tracking-[0.2em]">
-                Start Time
+                Start time
               </label>
-              <input
+              <select
                 required
-                type="time"
                 value={startTime}
                 onChange={(e) => setStartTime(e.target.value)}
                 className="w-full border-2 border-black px-4 py-3 text-sm focus:outline-none"
-              />
+              >
+                <option value="">Select… (15-min steps)</option>
+                {QUARTER_HOUR_TIMES.map((t) => (
+                  <option key={t} value={t}>
+                    {t}
+                  </option>
+                ))}
+              </select>
             </div>
-            <div className="space-y-2">
+            <div className="space-y-2 md:col-span-2">
               <label className="text-xs font-black uppercase tracking-[0.2em]">
-                End Date
+                End date <span className="font-semibold lowercase text-zinc-500">(optional)</span>
               </label>
               <input
-                required
                 type="date"
                 value={endDate}
                 onChange={(e) => setEndDate(e.target.value)}
-                className="w-full border-2 border-black px-4 py-3 text-sm focus:outline-none"
+                className="max-w-xs border-2 border-black px-4 py-3 text-sm focus:outline-none"
               />
             </div>
-            <div className="space-y-2">
+            <div className="space-y-2 md:col-span-2">
               <label className="text-xs font-black uppercase tracking-[0.2em]">
-                End Time
+                End time <span className="font-semibold lowercase text-zinc-500">(optional)</span>
               </label>
-              <input
-                required
-                type="time"
+              <select
                 value={endTime}
                 onChange={(e) => setEndTime(e.target.value)}
-                className="w-full border-2 border-black px-4 py-3 text-sm focus:outline-none"
-              />
+                className="max-w-xs border-2 border-black px-4 py-3 text-sm focus:outline-none"
+              >
+                <option value="">Default: 1 hour after start</option>
+                {QUARTER_HOUR_TIMES.map((t) => (
+                  <option key={t} value={t}>
+                    {t}
+                  </option>
+                ))}
+              </select>
+              <p className="text-xs text-zinc-500">
+                Leave both end fields empty to end one hour after the start; otherwise set both date and time.
+              </p>
             </div>
           </div>
 

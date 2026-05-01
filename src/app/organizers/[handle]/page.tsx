@@ -40,10 +40,7 @@ export default async function OrganizerPage({
 
   return (
     <main className="mx-auto max-w-4xl px-6 py-12">
-      <Link href="/" className="text-xs font-black uppercase tracking-[0.2em] underline">
-        ← Home
-      </Link>
-      <h1 className="mt-4 text-4xl font-black uppercase tracking-tight">
+      <h1 className="text-4xl font-black uppercase tracking-tight">
         {profile.organizer.display_name || "Organizer"}
       </h1>
       <p className="mt-2 text-sm text-zinc-600">@{profile.organizer.handle}</p>
