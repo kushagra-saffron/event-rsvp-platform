@@ -2,10 +2,12 @@
 
 import { createClient } from "@/lib/supabase/client";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { Lock, TrendingUp } from "lucide-react";
 
 export default function LoginPage() {
+  const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
 
@@ -39,6 +41,13 @@ export default function LoginPage() {
     } finally {
       setLoading(false);
     }
+  }
+
+  function continueAsDemo() {
+    const nextPath =
+      new URLSearchParams(window.location.search).get("next") ?? "/welcome";
+    document.cookie = "moneystage_demo_auth=1; Path=/; SameSite=Lax";
+    router.push(nextPath);
   }
 
   return (
@@ -84,6 +93,15 @@ export default function LoginPage() {
           >
             {loading ? "Redirecting…" : "Continue with Google"}
           </button>
+          {process.env.NODE_ENV === "development" ? (
+            <button
+              type="button"
+              onClick={continueAsDemo}
+              className="mt-3 w-full border-4 border-black px-6 py-4 text-xs font-black uppercase tracking-[0.2em] transition hover:bg-zinc-100"
+            >
+              Continue as Demo User
+            </button>
+          ) : null}
           {message ? (
             <p className="mt-4 text-sm font-medium text-red-600" role="alert">
               {message}

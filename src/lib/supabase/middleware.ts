@@ -34,9 +34,14 @@ export async function updateSession(request: NextRequest) {
   const {
     data: { user },
   } = await supabase.auth.getUser();
+  const isDevDemoUser =
+    process.env.NODE_ENV === "development" &&
+    request.cookies.get("moneystage_demo_auth")?.value === "1";
 
-  const isProtectedRoute = request.nextUrl.pathname.startsWith("/welcome");
-  if (isProtectedRoute && !user) {
+  const isProtectedRoute =
+    request.nextUrl.pathname.startsWith("/welcome") ||
+    request.nextUrl.pathname.startsWith("/create");
+  if (isProtectedRoute && !user && !isDevDemoUser) {
     const redirectUrl = request.nextUrl.clone();
     redirectUrl.pathname = "/login";
     redirectUrl.searchParams.set("next", request.nextUrl.pathname);
