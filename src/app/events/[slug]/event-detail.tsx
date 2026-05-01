@@ -14,6 +14,7 @@ import {
   User,
   Video,
 } from "lucide-react";
+import { coerceRpcJsonb } from "@/lib/supabase/coerce-rpc-jsonb";
 import { createClient } from "@/lib/supabase/client";
 import type {
   EventBundle,
@@ -85,7 +86,8 @@ export function EventDetail({
       ? { p_slug: slug, p_invite_token: inviteToken }
       : { p_slug: slug };
     const { data } = await supabase.rpc("get_event_by_slug", rpcArgs);
-    if (data) setBundle(data as EventBundle);
+    const next = coerceRpcJsonb<EventBundle>(data);
+    if (next) setBundle(next);
   }, [slug, inviteToken]);
 
   const viewer: EventViewerState = bundle.viewer;

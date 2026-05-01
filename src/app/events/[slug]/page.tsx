@@ -1,84 +1,24 @@
-import { notFound } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
-import type { EventBundle } from "@/lib/events/types";
-import { EventDetail } from "./event-detail";
+import { Suspense } from "react";
+import { EventSlugFetcher } from "./event-slug-fetcher";
 
-/** Next may cache static shells; fetching this page must always reflect current events. */
-export const dynamic = "force-dynamic";
-
-function parseInvite(raw: string | string[] | undefined): string | undefined {
-  if (typeof raw !== "string") return undefined;
-  const t = raw.trim();
-  if (
-    /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
-      t,
-    )
-  ) {
-    return t;
-  }
-  return undefined;
+function LoadingShell() {
+  return (
+    <div className="flex min-h-[50vh] flex-1 items-center justify-center bg-white px-6">
+      <p className="text-xs font-black uppercase tracking-[0.2em] text-zinc-500">
+        Loading event…
+      </p>
+    </div>
+  );
 }
 
-export default async function EventPage({
-  params,
-  searchParams,
-}: {
-  params: Promise<{ slug: string }>;
-  searchParams: Promise<Record<string, string | string[] | undefined>>;
-}) {
-  const { slug: rawSlug } = await params;
-  const sp = await searchParams;
-  const invite = parseInvite(sp.invite);
-
-  let slug = typeof rawSlug === "string" ? rawSlug.trim() : "";
-  if (slug) {
-    try {
-      slug = decodeURIComponent(slug);
-    } catch {
-      /* keep trimmed raw */
-    }
-    slug = slug.trim().toLowerCase();
-  }
-
-  if (!slug) {
-    notFound();
-  }
-
-  let supabase;
-  try {
-    supabase = await createClient();
-  } catch {
-    notFound();
-  }
-
-  // Omit optional UUID entirely when absent. Some PostgREST/Supabase setups
-  // mishandle explicit null for defaulted uuid params differently than the confirmed page.
-  const rpcArgs =
-    invite != null && invite !== ""
-      ? { p_slug: slug, p_invite_token: invite }
-      : { p_slug: slug };
-
-  const { data, error } = await supabase.rpc(
-    "get_event_by_slug",
-    rpcArgs,
-  );
-
-  if (error || data == null) {
-    notFound();
-  }
-
-  const bundleSlug = (data as EventBundle).slug;
-  const bundleId = (data as EventBundle).id;
-
-  if (!bundleSlug || !bundleId) {
-    notFound();
-  }
-
+/**
+ * Loads the event bundle on the client (same Supabase path as Explore) so SSR env/cookies,
+ * caching, or JSON-RPC shape quirks cannot silently 404 valid events on Vercel.
+ */
+export default function EventPage() {
   return (
-    <EventDetail
-      initial={data as EventBundle}
-      slug={bundleSlug}
-      inviteParam={invite}
-    />
+    <Suspense fallback={<LoadingShell />}>
+      <EventSlugFetcher />
+    </Suspense>
   );
 }
