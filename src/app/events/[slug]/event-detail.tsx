@@ -32,7 +32,7 @@ function parseInviteParam(raw: string | undefined): string | null {
   if (!raw || typeof raw !== "string") return null;
   const t = raw.trim();
   if (
-    !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
       t,
     )
   ) {
@@ -81,10 +81,10 @@ export function EventDetail({
       }
     })();
     if (!supabase) return;
-    const { data } = await supabase.rpc("get_event_by_slug", {
-      p_slug: slug,
-      p_invite_token: inviteToken,
-    });
+    const rpcArgs = inviteToken
+      ? { p_slug: slug, p_invite_token: inviteToken }
+      : { p_slug: slug };
+    const { data } = await supabase.rpc("get_event_by_slug", rpcArgs);
     if (data) setBundle(data as EventBundle);
   }, [slug, inviteToken]);
 

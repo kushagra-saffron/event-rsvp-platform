@@ -114,7 +114,7 @@ export function ExploreEventsSection() {
             <EventCard
               key={event.id}
               event={event}
-              onOpen={(slug) => router.push(`/events/${slug}`)}
+              onOpen={(s) => router.push(`/events/${encodeURIComponent(s)}`)}
             />
           ))}
         </div>
